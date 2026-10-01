@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1087759426989",
+    "project_id": "pontomobile-86dee",
+    "storage_bucket": "pontomobile-86dee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1087759426989:android:80ac5652b229885945ad24",
+        "android_client_info": {
+          "package_name": "com.example.ponto_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ5r7RG80UuishCl7ROQjOOjU4CdX1rOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

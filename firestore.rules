@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'name', 'email', 'createdAt', 'biometricEnabled'
+        ])
+        && request.resource.data.keys().hasAll(['name', 'email', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.get('biometricEnabled', false) is bool;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['biometricEnabled'])
+        && request.resource.data.biometricEnabled is bool;
+      allow delete: if false;
+
+      match /records/{recordId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'type', 'recordedAt', 'latitude', 'longitude', 'distanceMeters'
+          ])
+          && request.resource.data.keys().hasAll([
+            'type', 'recordedAt', 'latitude', 'longitude', 'distanceMeters'
+          ])
+          && request.resource.data.type in ['entrada', 'saida']
+          && request.resource.data.recordedAt == request.time
+          && request.resource.data.latitude is number
+          && request.resource.data.latitude >= -90
+          && request.resource.data.latitude <= 90
+          && request.resource.data.longitude is number
+          && request.resource.data.longitude >= -180
+          && request.resource.data.longitude <= 180
+          && request.resource.data.distanceMeters is number
+          && request.resource.data.distanceMeters >= 0
+          && request.resource.data.distanceMeters <= 100;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+﻿{
+    "flutter":  {
+                    "platforms":  {
+                                      "android":  {
+                                                      "default":  {
+                                                                      "projectId":  "pontomobile-86dee",
+                                                                      "appId":  "1:1087759426989:android:80ac5652b229885945ad24",
+                                                                      "fileOutput":  "android/app/google-services.json"
+                                                                  }
+                                                  },
+                                      "dart":  {
+                                                   "lib/firebase_options.dart":  {
+                                                                                     "projectId":  "pontomobile-86dee",
+                                                                                     "configurations":  {
+                                                                                                            "android":  "1:1087759426989:android:80ac5652b229885945ad24"
+                                                                                                        }
+                                                                                 }
+                                               }
+                                  }
+                },
+    "firestore":  {
+                      "rules":  "firestore.rules"
+                  }
+}
