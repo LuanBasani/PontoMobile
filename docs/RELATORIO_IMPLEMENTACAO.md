@@ -1,84 +1,105 @@
 # Relatório de implementação — PontoMobile
 
+| Controle do documento | Informação |
+|---|---|
+| Identificação | DOC-03 |
+| Versão | 1.0 |
+| Revisão | 2026-10-01 |
+| Natureza | Projeto acadêmico — Recursos de Hardware |
+| Escopo | Aplicativo Android Flutter para registro de ponto com Firebase, localização e biometria local |
+
+Este relatório registra a implementação presente no repositório. Configurações remotas e verificações em hardware são identificadas como pendências quando não podem ser confirmadas pelo código local.
+
 ## 1. Introdução
 
-O PontoMobile é um aplicativo Flutter acadêmico para demonstrar registro de ponto com autenticação, geolocalização, biometria local e persistência por usuário.
+O PontoMobile é um aplicativo Android desenvolvido em Flutter para demonstrar registro de entrada e saída com autenticação, geolocalização, persistência individual e desbloqueio biométrico local opcional.
 
 ## 2. Objetivo do aplicativo
 
-Permitir que uma pessoa autenticada registre entrada e saída quando o aparelho indicar que está a até 100 metros do local de trabalho configurado.
+Permitir que uma pessoa autenticada registre ponto quando a posição informada pelo aparelho estiver a até 100 metros do local de trabalho configurado. Os eventos são armazenados no Firestore associados ao UID da conta.
 
 ## 3. Tecnologias utilizadas
 
-- Flutter e Dart.
-- Firebase Core e Firebase Authentication.
-- Cloud Firestore.
-- Geolocator para GPS, permissões e distância.
-- Local Auth para validação biométrica local.
-- `flutter_test` para testes unitários e de widgets.
+- Flutter e Dart para interface e lógica do aplicativo.
+- Firebase Core para inicialização do Firebase.
+- Firebase Authentication para cadastro, login e estado da sessão.
+- Cloud Firestore para perfil e registros de ponto.
+- Geolocator para permissões, posição e cálculo de distância.
+- Local Auth para confirmação biométrica local.
+- flutter_test para testes unitários e de widgets.
 
-Nenhuma dependência nova foi adicionada.
+As dependências estão declaradas em pubspec.yaml; esta implementação não adiciona dependências além das existentes.
 
 ## 4. Arquitetura do projeto
 
-`core` contém validações, política de distância, configuração de coordenadas e tema. `models` contém perfil e registros. `services` encapsula Firebase e plugins de hardware. `screens` apresenta login, cadastro, ponto, histórico e perfil. `AppServices` compõe as dependências e permite testar widgets com repositórios falsos.
+main.dart inicializa o Firebase e compõe os serviços. app/ reúne a composição e contratos de serviço. core/ centraliza configuração, política de presença, validação de formulário e tema. models/ contém perfil e registro. services/ encapsula Firebase e APIs do dispositivo. screens/ contém autenticação, ponto, histórico e perfil. firestore.rules contém as regras locais; test/ contém testes sem dependência de serviços reais.
 
 ## 5. Autenticação
 
-Firebase Authentication provê cadastro e login por e-mail/senha, estado persistente da sessão e logout. O cadastro cria o documento `users/{uid}` com nome, e-mail, data de criação do servidor e opção biométrica. A senha não é gravada no Firestore.
+Firebase Authentication oferece cadastro e login com e-mail e senha e mantém o estado da sessão. O cadastro grava nome, e-mail, data do servidor e preferência biométrica inicial em users/{uid}. A senha não é armazenada pelo app no Firestore. O Auth Gate decide entre login, desbloqueio biométrico, conteúdo autenticado e estados de erro conforme a sessão e o perfil.
 
 ## 6. Biometria
 
-Local Auth verifica suporte e biometria cadastrada. A confirmação biométrica protege localmente uma sessão já autenticada no Firebase; não emite credenciais Firebase e não armazena dados biométricos. O logout encerra a sessão Firebase e preserva a preferência biométrica do perfil; a ação **Sair e entrar com senha** na tela de bloqueio desativa essa preferência. O fluxo ainda precisa de teste físico em dispositivo compatível.
+Local Auth verifica suporte e biometria cadastrada e solicita confirmação local. A opção é armazenada como biometricEnabled no perfil do Firestore. Quando ativa, o app bloqueia o conteúdo ao iniciar ou retomar a sessão e solicita confirmação. O logout comum preserva a preferência; **Sair e entrar com senha** na tela de bloqueio desativa a preferência e encerra a sessão. A biometria não cria credencial Firebase nem armazena dados biométricos.
 
 ## 7. Geolocalização
 
-Geolocator verifica se o serviço de localização está ativo, solicita permissão quando necessário e obtém posição com precisão alta e timeout de 20 segundos. Negativa de permissão, bloqueio permanente, GPS desligado, timeout e falhas de leitura resultam em mensagens amigáveis.
+O serviço de localização verifica disponibilidade do GPS, solicita permissão, consulta a posição com alta precisão e usa timeout de 20 segundos. Erros como permissão negada, serviço desativado, timeout e falha de leitura são convertidos em mensagens para a interface.
 
 ## 8. Regra dos 100 metros
 
-O aplicativo usa coordenadas fixas do SENAI Americana: latitude `-22.7538572` e longitude `-47.3513785`, definidas em `lib/core/constants/app_config.dart`. A regra aceita distância menor ou igual a 100 m e bloqueia valores maiores.
+O local configurado é a Escola SENAI "Prof. João Baptista Salles da Silva", Americana, nas coordenadas -22.7538572, -47.3513785, informadas pelo responsável do projeto e centralizadas em AppConfig. AttendancePolicy permite distâncias finitas entre 0 e 100 metros, inclusive. Valores maiores ou inválidos são recusados.
 
 ## 9. Registro de ponto
 
-O fluxo obtém uma localização nova ao confirmar o ponto, calcula a distância até o local configurado e só então grava `entrada` ou `saida`. A próxima ação alterna conforme o registro mais recente. O app desabilita submissões duplicadas enquanto grava.
+Ao confirmar o registro, o app consulta uma posição atual, calcula a distância, valida coordenadas e raio e então grava Entrada ou Saída. A ação seguinte é determinada pelo evento mais recente. O botão é bloqueado enquanto uma submissão está em andamento. A interface atualiza a localização e apresenta confirmação ou erro.
 
 ## 10. Firestore
 
-Perfis ficam em `users/{uid}`; registros ficam em `users/{uid}/records/{recordId}`. Cada registro inclui tipo, `recordedAt` do servidor, latitude, longitude e distância calculada no cliente. A tela de histórico acompanha snapshots em tempo real.
+Perfis são armazenados em users/{uid} e registros em users/{uid}/records/{recordId}. Os registros guardam tipo, recordedAt, latitude, longitude e distância. O serviço consulta o histórico em ordem decrescente e acompanha atualizações por stream. O horário gravado usa FieldValue.serverTimestamp().
 
-As regras restringem leitura ao proprietário e validam campos, horários e distância declarada. Foram compiladas pelo Firebase CLI e publicadas em `pontomobile-86dee` em 1º de outubro de 2026. Elas não autenticam a posição física enviada pelo dispositivo.
+O arquivo local firestore.rules restringe o acesso ao proprietário e valida o formato e a distância declarada. O estado de publicação das regras no projeto remoto deve ser confirmado no Console ou pelo Firebase CLI; não é inferido apenas pela presença do arquivo.
 
-## 11. Interface e UX
+## 11. Interface e experiência de uso
 
-A interface usa Material 3 e tema centralizado, navegação inferior para Ponto/Histórico/Perfil, cartões de localização e último registro, estados de carregamento e feedback de sucesso/erro. Login e cadastro validam os campos e evitam múltiplos envios.
+A interface utiliza Material 3 e navegação inferior entre Ponto, Histórico e Perfil. A tela Ponto apresenta distância, localização, próxima ação e registro mais recente. Login e cadastro incluem validação, estado de carregamento e mensagens amigáveis. Histórico atualiza por stream do Firestore.
 
 ## 12. Segurança
 
-O código não armazena senha ou dados biométricos. Consultas são organizadas por UID e as regras impedem um usuário autenticado de ler/escrever documentos de outro UID. Coordenadas e distância ainda são fornecidas pelo cliente, que pode ser modificado; isso limita o uso como controle antifraude real.
+Senhas e dados biométricos não são armazenados pelo aplicativo. Consultas e regras são organizadas por UID autenticado. A chave de API presente na configuração FlutterFire é um identificador cliente Firebase, não uma credencial de autorização; a segurança dos dados depende das regras e dos controles Firebase. O responsável deve confirmar no Console as restrições de API da chave e a configuração dos serviços.
+
+As coordenadas, a distância e o limite são processados no cliente e não comprovam presença física. As regras impedem acessos entre UIDs, mas não impedem por si só que um cliente modificado envie uma posição falsa. O projeto não deve ser tratado como sistema antifraude ou ponto trabalhista de produção sem validação confiável em servidor e revisão legal/privacidade.
 
 ## 13. Testes
 
-Foram criados testes para configuração de coordenadas, raio de 100 m, sequência de registros, validação de formulário, serialização de perfil/registros, mensagens de erro, paths por UID e widgets de autenticação. Resultado final: `flutter analyze` sem problemas; `flutter test` com 24 testes aprovados; `flutter pub get` concluído; regras Firestore compiladas e publicadas; app compilado e iniciado no Android SM S908E sem coordenadas de trabalho.
+A suíte automatizada cobre configuração fixa, limite inclusivo e excedente, sequência de eventos, validadores, serialização dos modelos, mapeamento de erros, paths Firestore e widgets de autenticação e bloqueio biométrico. Os testes não comprovam a configuração da nuvem, GPS físico ou sensor biométrico; estes requerem validação manual.
+
+Comandos de verificação:
+
+~~~bash
+flutter analyze
+flutter test
+~~~
+
+Verificação executada em 2026-10-01: flutter analyze terminou sem problemas e flutter test aprovou 24 testes. Esses resultados não comprovam o estado dos serviços Firebase remotos nem o funcionamento de hardware físico.
 
 ## 14. Desafios encontrados
 
-Na versão instalada do Cloud Firestore, `DocumentSnapshot.data()` não aceita parâmetro de opções para server timestamps. Para snapshots locais pendentes, os serviços fornecem um horário estimado apenas para exibição do registro ainda não confirmado; o documento salvo continua usando `FieldValue.serverTimestamp()` como horário oficial.
-
-O build Android também reportou avisos dos plugins Firebase sobre o Kotlin Gradle Plugin e avisos Java de APIs/opções legadas. O Firebase CLI avisou que a chave `flutter` preexistente em `firebase.json` não faz parte do schema dele, mas concluiu o dry-run e o deploy das regras. O APK foi gerado e o app iniciou no emulador; esses avisos não foram ocultados nem alterados no código dos plugins/configuração FlutterFire.
+Não há registro de evidência suficiente para afirmar outros incidentes de implementação. Considerações técnicas identificadas: a chave Firebase de cliente é pública por natureza e deve ter uso restrito; coordenadas recebidas do dispositivo não são prova confiável de presença; o sensor biométrico do emulador precisa ser configurado para validação manual.
 
 ## 15. Soluções adotadas
 
-Foram mantidas as dependências já existentes. As chamadas Firebase e de hardware ficaram em serviços, regras simples ganharam testes puros, e erros externos são convertidos em mensagens compreensíveis. As coordenadas fixas foram fornecidas para o SENAI Americana.
+Foram usados serviços para isolar integrações Firebase e de hardware, regras de domínio puras para distância e sequência de ponto, validadores reutilizáveis e testes sem dependência de serviços remotos. A configuração de coordenadas foi centralizada. Não foram adicionadas dependências para gerar documentação ou esconder a configuração pública Firebase.
 
-## 16. Melhorias/diferenciais
+## 16. Melhorias e diferenciais
 
-- Indicador de distância/precisão e estado da localização.
-- Próxima ação automática entre entrada e saída.
-- Histórico detalhado em tempo real.
-- Desbloqueio biométrico opcional da sessão autenticada.
-- Perfis e registros segregados por UID.
+- Feedback de disponibilidade, distância e precisão da localização.
+- Alternância automática de Entrada e Saída.
+- Histórico individual atualizado em tempo real.
+- Desbloqueio local opcional da sessão autenticada.
+- Tratamento de erros de autenticação, GPS e gravação.
+- Regras locais do Firestore e testes de paths associados ao UID.
 
 ## 17. Conclusão
 
-O código local implementa os fluxos principais e a documentação de instalação. O Firestore já existe e as regras foram publicadas. Ainda é necessário confirmar o provedor E-mail/senha no Firebase Console e testar o fluxo com uma conta Firebase e GPS/biometria no Android. O app está fixado nas coordenadas do SENAI Americana.
+O repositório contém a implementação Flutter, testes, regras locais e documentação para o fluxo acadêmico de registro de ponto. Antes de uma demonstração, devem ser confirmados no ambiente Firebase o provedor E-mail/senha, a disponibilidade do Firestore e a publicação das regras. GPS e biometria devem ser verificados no dispositivo ou emulador usado na apresentação. Essas verificações externas não são declaradas como concluídas por este relatório.

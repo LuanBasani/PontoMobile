@@ -1,72 +1,96 @@
 # PontoMobile
 
-Aplicativo Flutter de registro de ponto com autenticação Firebase, validação de localização em um raio de 100 metros e histórico individual no Cloud Firestore. Projeto acadêmico da avaliação somativa de Recursos de Hardware.
+Aplicativo Android de registro de ponto desenvolvido em Flutter para a avaliação somativa de Recursos de Hardware do SENAI. O app combina autenticação Firebase, verificação da localização e desbloqueio biométrico local.
+
+> **Documento README-001** · Versão 1.0 · Revisado em 2026-10-01  
+> Projeto acadêmico. Esta documentação usa identificação, versão, escopo, procedimentos e limitações; não representa certificação ISO.
+
+## Objetivo
+
+Permitir que uma pessoa autenticada registre entrada e saída quando a localização do aparelho estiver a até 100 metros do local de trabalho configurado. Cada conta acessa apenas o próprio perfil e histórico.
 
 ## Funcionalidades
 
-- Cadastro e login por e-mail e senha com Firebase Authentication.
-- Perfil associado ao UID autenticado, sem armazenar senha.
-- Desbloqueio biométrico opcional da sessão Firebase já autenticada no dispositivo.
-- Verificação do GPS e das permissões de localização.
-- Registro de entrada e saída somente até 100 metros das coordenadas configuradas.
-- Armazenamento de data/hora, latitude, longitude e distância.
-- Histórico de registros atualizado por stream do Firestore.
-- Regras Firestore locais com acesso restrito ao próprio UID.
+- Cadastro, login e logout com Firebase Authentication por e-mail e senha.
+- Perfil armazenado no Cloud Firestore, sem salvar a senha.
+- Proteção biométrica local opcional para uma sessão Firebase já autenticada.
+- Consulta da localização, tratamento de permissões e cálculo da distância até o trabalho.
+- Alternância entre os registros Entrada e Saída, com limite inclusivo de 100 metros.
+- Histórico individual atualizado em tempo real, com data, hora, coordenadas e distância.
+- Regras do Firestore versionadas no arquivo firestore.rules.
 
 ## Tecnologias
 
-- Flutter e Dart
-- Firebase Core, Authentication e Cloud Firestore
-- Geolocator
-- Local Auth
+| Área | Tecnologia |
+|---|---|
+| Aplicativo | Flutter e Dart |
+| Autenticação | Firebase Authentication |
+| Persistência | Cloud Firestore |
+| Localização | Geolocator |
+| Biometria local | Local Auth |
+| Testes | flutter_test |
 
-As dependências já estão declaradas em `pubspec.yaml`; não é necessário instalar pacotes adicionais.
+As dependências estão declaradas em pubspec.yaml. O aplicativo não exige dependências adicionais para ser executado.
 
-## Estrutura principal
+## Estrutura
 
-```text
+~~~text
 lib/
-├── app/          # composição e serviços da aplicação
-├── core/         # configuração, políticas, validações e tema
-├── models/       # perfil e registro de ponto
-├── screens/      # autenticação, ponto, histórico e perfil
-├── services/     # Firebase e recursos do dispositivo
-└── widgets/      # componentes reutilizáveis
-test/             # testes de domínio, modelos, serviços e widgets
-docs/             # relatório e instalação/uso
-firestore.rules   # regras locais de segurança do Firestore
-```
+├── app/                 composição da aplicação e serviços
+├── core/                configuração, regras, validações e tema
+├── models/              perfil e registro de ponto
+├── screens/             autenticação, ponto, histórico e perfil
+├── services/            Firebase e recursos do dispositivo
+├── firebase_options.dart configuração Firebase para Android
+└── main.dart            inicialização do Firebase e do app
+android/                 projeto Android e configuração Firebase
+docs/                    instalação, uso e relatório
+firestore.rules          regras locais de acesso ao Firestore
+test/                     testes unitários e de widgets
+~~~
 
-## Configuração e execução
+## Instalação e execução
 
-Antes de executar, configure Firebase Authentication e Cloud Firestore conforme [Instalação e uso](docs/INSTALACAO_E_USO.md). O aplicativo usa as coordenadas fixas do SENAI Americana: latitude `-22.7538572` e longitude `-47.3513785`.
+Consulte o [Guia de instalação e uso](docs/INSTALACAO_E_USO.md) para configurar o Firebase, iniciar um emulador e testar GPS e biometria.
 
-```bash
+~~~bash
 flutter pub get
 flutter analyze
 flutter test
 flutter run
-```
+~~~
 
-Para alterar o local de trabalho, edite as constantes em `lib/core/constants/app_config.dart`.
+O projeto Android está configurado para com.example.ponto_mobile. O Firebase precisa ter Authentication por e-mail/senha e Cloud Firestore configurados para que os fluxos remotos funcionem.
 
-## Firebase
+## Local de trabalho
 
-O projeto usa o Firebase `pontomobile-86dee` e o aplicativo Android `com.example.ponto_mobile`, preservando a configuração existente em `lib/firebase_options.dart` e `android/app/google-services.json`. O Firebase CLI confirmou o Firestore `(default)` em `southamerica-east1` e publicou `firestore.rules` em 1º de outubro de 2026.
+As coordenadas fixas informadas para a Escola SENAI "Prof. João Baptista Salles da Silva", em Americana, são:
 
-Confirme no Console que o provedor E-mail/senha está habilitado. As regras em `firestore.rules` podem ser publicadas novamente após alterações com `firebase deploy --only firestore:rules --project pontomobile-86dee`. A validação do raio acontece no cliente. As regras restringem UID, formato e distância declarada, mas não conseguem comprovar que coordenadas GPS enviadas pelo aparelho são autênticas.
+- Latitude: -22.7538572
+- Longitude: -47.3513785
 
-## Localização e biometria
+Os valores estão centralizados em lib/core/constants/app_config.dart. Para alterar o local, atualize essas constantes e o teste test/core/app_config_test.dart.
 
-O aplicativo solicita permissão de localização em tempo de execução e informa quando o GPS está desativado ou a permissão foi negada. A biometria é opcional e protege localmente uma sessão que já entrou pelo Firebase; ela não autentica diretamente no Firebase nem substitui a senha. A preferência biométrica fica salva no perfil mesmo após sair da conta; ao entrar novamente, o app solicita a biometria. Na tela de bloqueio, **Sair e entrar com senha** desativa essa preferência. O comportamento biométrico precisa ser verificado em um aparelho Android compatível.
+## Firebase e segurança
+
+Os arquivos locais referenciam o projeto Firebase pontomobile-86dee. lib/firebase_options.dart e android/app/google-services.json são configurações de cliente geradas pelo FlutterFire. A chave de API Firebase identifica o projeto; ela não substitui autenticação, regras do Firestore ou Firebase App Check e não é uma senha. Não coloque chaves privadas, senhas de serviço ou arquivos de conta de serviço no aplicativo ou no controle de versão.
+
+As regras locais restringem os documentos pelo UID autenticado. A existência de firestore.rules não prova que essas regras estejam publicadas no projeto remoto. Veja no guia como revisar e publicar as regras. A localização é calculada no cliente e pode ser falsificada; o app não deve ser usado como controle trabalhista antifraude sem validação confiável em servidor.
+
+## Biometria
+
+Ative **Desbloquear com biometria** na tela Perfil depois de cadastrar uma impressão digital ou outra biometria no dispositivo. Com a opção ativa, o app solicita confirmação ao abrir ou retomar a sessão. A preferência fica no perfil Firebase após o logout comum; **Sair e entrar com senha**, na tela de bloqueio, desativa a preferência. A biometria não cria uma sessão Firebase nem substitui a senha.
 
 ## Testes
 
-Os testes unitários cobrem configuração das coordenadas, limite inclusivo de 100 metros, sequência de entrada/saída, validação de formulários, modelos e mapeamento de erros. Testes de widget cobrem o auth gate e os formulários sem conectar ao Firebase real.
+Os testes cobrem a política de 100 metros, a sequência Entrada/Saída, configuração das coordenadas, validadores, modelos, erros, paths Firestore e fluxos de autenticação/biometria testáveis sem serviços externos.
 
-```bash
+~~~bash
 flutter analyze
 flutter test
-```
+~~~
 
-Consulte [o relatório de implementação](docs/RELATORIO_IMPLEMENTACAO.md) e [o guia de instalação e uso](docs/INSTALACAO_E_USO.md).
+## Documentos
+
+- [Instalação e uso](docs/INSTALACAO_E_USO.md)
+- [Relatório de implementação](docs/RELATORIO_IMPLEMENTACAO.md)

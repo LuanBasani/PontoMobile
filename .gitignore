@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local secrets and signing credentials (never commit service-account keys).
+.env
+.env.*
+!.env.example
+/android/key.properties
+*.jks
+*.keystore
+**/service-account*.json
+**/firebase-adminsdk*.json
